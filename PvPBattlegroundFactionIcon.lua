@@ -1,7 +1,7 @@
 -- Faction icons
 local factionIcons = {
-    [0] = "Interface\\Icons\\ui_hordeicon-round", -- Horde
-    [1] = "Interface\\Icons\\ui-allianceicon", -- Alliance
+    [0] = "Interface\\Icons\\UI_HordeIcon", -- Horde
+    [1] = "Interface\\Icons\\Ui_alliance_7legionmedal", -- Alliance
 }
 
 local frame = nil
@@ -53,6 +53,7 @@ end
 -- Load the frame's position
 local function LoadPosition()
     assert(frame, "Frame not initialized")
+    frame:ClearAllPoints()
     if PvPBattlegroundFactionIconDB.position and type(PvPBattlegroundFactionIconDB.position.x) == "number" and type(PvPBattlegroundFactionIconDB.position.y) == "number" then
         frame:SetPoint("CENTER", UIParent, "CENTER", PvPBattlegroundFactionIconDB.position.x, PvPBattlegroundFactionIconDB.position.y)
         verbose("Loaded position: x=" .. tostring(PvPBattlegroundFactionIconDB.position.x) .. ", y=" .. tostring(PvPBattlegroundFactionIconDB.position.y))
@@ -85,12 +86,20 @@ local function EnsureFrameExists()
         frame:RegisterForDrag("LeftButton")
         frame:SetScript("OnDragStart", function(self)
             if not (IsControlKeyDown() and IsShiftKeyDown()) then return end
+            self._pbfiIsMoving = true
             self:StartMoving()
         end)
         frame:SetScript("OnDragStop", function(self)
-            if self:IsMoving() then
+            if self._pbfiIsMoving then
                 self:StopMovingOrSizing()
+                self._pbfiIsMoving = false
                 SavePosition()
+            end
+        end)
+        frame:SetScript("OnHide", function(self)
+            if self._pbfiIsMoving then
+                self:StopMovingOrSizing()
+                self._pbfiIsMoving = false
             end
         end)
 
@@ -105,9 +114,19 @@ local function EnsureFrameExists()
     end
 end
 
+local function ResetPosition()
+    EnsureFrameExists()
+    if frame and frame.StopMovingOrSizing then
+        frame:StopMovingOrSizing()
+    end
+    PvPBattlegroundFactionIconDB.position = nil
+    LoadPosition()
+    info("Position reset to default")
+end
+
 
 local function PrintUsage()
-    info("Usage: /pbfi size <number> | /pbfi debug")
+    info("Usage: /pbfi size <number> | /pbfi debug | /pbfi reset")
     info("Current size: " .. tostring(GetSavedIconSize()) .. ", debug: " .. tostring(PvPBattlegroundFactionIconDB.debug))
 end
 
@@ -158,30 +177,6 @@ local function UpdateIcon()
     end
 end
 
-local previewTimer = nil
-local function ForceShowIconForSeconds(seconds)
-    assert(frame, "Frame not initialized")
-    assert(icon, "Icon not initialized")
-
-    local faction = GetMatchFaction()
-    if not (faction and factionIcons[faction]) then
-        return
-    end
-
-    verbose("Forcing icon display for " .. tostring(seconds) .. " seconds")
-    icon:SetTexture(factionIcons[faction])
-    frame:Show()
-
-    if previewTimer and previewTimer.Cancel then
-        previewTimer:Cancel()
-    end
-
-    previewTimer = C_Timer.NewTimer(seconds, function()
-        verbose("Preview time ended")
-        UpdateIcon()
-    end)
-end
-
 -- Event handler
 local function OnEvent(self, event, ...)
     if event == "PLAYER_ENTERING_WORLD" or event == "ZONE_CHANGED_NEW_AREA" or event == "PLAYER_LEAVING_WORLD" then
@@ -221,14 +216,18 @@ SlashCmdList["PBFI"] = function(msg)
 
         PvPBattlegroundFactionIconDB.size = newSize
         ApplyIconSize()
-        info("Icon size set to " .. tostring(newSize) .. " (previewing for 10s)")
-        ForceShowIconForSeconds(10)
+        info("Icon size set to " .. tostring(newSize))
         return
     end
 
     if cmd == "debug" then
         PvPBattlegroundFactionIconDB.debug = not PvPBattlegroundFactionIconDB.debug
         info("Debug is now " .. tostring(PvPBattlegroundFactionIconDB.debug))
+        return
+    end
+
+    if cmd == "reset" or cmd == "resetpos" or cmd == "resetposition" then
+        ResetPosition()
         return
     end
 
