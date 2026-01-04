@@ -18,10 +18,21 @@ if type(PvPBattlegroundFactionIconDB.size) ~= "number" or PvPBattlegroundFaction
     PvPBattlegroundFactionIconDB.size = DEFAULT_ICON_SIZE
     PvPBattlegroundFactionIconDB.position = nil
 end
+if PvPBattlegroundFactionIconDB.position ~= nil and type(PvPBattlegroundFactionIconDB.position) ~= "table" then
+    PvPBattlegroundFactionIconDB.position = nil
+end
+if type(PvPBattlegroundFactionIconDB.debug) ~= "boolean" then
+    PvPBattlegroundFactionIconDB.debug = false
+end
+
+local function info(msg)
+    print(ADDON_NAME .. ": |cffcfcfcf" .. tostring(msg) .. "|r")
+end
 
 local function verbose(msg)
-    -- Uncomment the next line to enable verbose logging
-    print(ADDON_NAME .. " (verbose): |cffcfcfcf" .. tostring(msg) .. "|r")
+    if PvPBattlegroundFactionIconDB.debug then
+        print(ADDON_NAME .. " (debug): |cffcfcfcf" .. tostring(msg) .. "|r")
+    end
 end
 
 local function GetSavedIconSize()
@@ -47,6 +58,7 @@ local function LoadPosition()
         verbose("Loaded position: x=" .. tostring(PvPBattlegroundFactionIconDB.position.x) .. ", y=" .. tostring(PvPBattlegroundFactionIconDB.position.y))
     else
         frame:SetPoint("CENTER", UIParent, "CENTER")
+        verbose("No saved position, using default center position")
     end
 end
 
@@ -95,7 +107,8 @@ end
 
 
 local function PrintUsage()
-    verbose("/pbfi <number> - set icon size (current: " .. tostring(GetSavedIconSize()) .. ")")
+    info("Usage: /pbfi size <number> | /pbfi debug")
+    info("Current size: " .. tostring(GetSavedIconSize()) .. ", debug: " .. tostring(PvPBattlegroundFactionIconDB.debug))
 end
 
 -- Check if the player is in a battleground
@@ -105,23 +118,13 @@ local function IsInBattleground()
 end
 
 local function GetMatchFaction()
-    if C_PvP and C_PvP.GetActiveMatchFaction then
-        local faction = C_PvP.GetActiveMatchFaction()
-        if faction == 0 or faction == 1 then
-            verbose("Detected match faction: " .. tostring(faction))
-            return faction
-        end
+    local faction = GetBattlefieldArenaFaction()
+    if faction and factionIcons[faction] then
+        return faction
+    else
+        local factionGrp, _ = UnitFactionGroup("player")
+        if factionGrp == "Horde" then return 0 else return 1 end
     end
-
-    verbose("Falling back to UnitFactionGroup")
-    local factionGroup = UnitFactionGroup("player")
-    if factionGroup == "Horde" then
-        return 0
-    elseif factionGroup == "Alliance" then
-        return 1
-    end
-
-    return nil
 end
 
 -- Update the faction icon
@@ -133,6 +136,7 @@ local function UpdateIcon()
     if not IsInBattleground() then
         frame:Hide()
         currentFaction = nil
+        verbose("Not in battleground, hiding icon")
         return
     end
 
@@ -143,13 +147,39 @@ local function UpdateIcon()
         if currentFaction ~= faction then
             icon:SetTexture(factionIcons[faction])
             currentFaction = faction
+            verbose("Updated icon to faction: " .. tostring(faction))
         end
         frame:Show()
         return
+    else
+        verbose("No valid faction detected (".. tostring(faction) .. "), hiding icon")
+        frame:Hide()
+        currentFaction = nil
+    end
+end
+
+local previewTimer = nil
+local function ForceShowIconForSeconds(seconds)
+    assert(frame, "Frame not initialized")
+    assert(icon, "Icon not initialized")
+
+    local faction = GetMatchFaction()
+    if not (faction and factionIcons[faction]) then
+        return
     end
 
-    frame:Hide()
-    currentFaction = nil
+    verbose("Forcing icon display for " .. tostring(seconds) .. " seconds")
+    icon:SetTexture(factionIcons[faction])
+    frame:Show()
+
+    if previewTimer and previewTimer.Cancel then
+        previewTimer:Cancel()
+    end
+
+    previewTimer = C_Timer.NewTimer(seconds, function()
+        verbose("Preview time ended")
+        UpdateIcon()
+    end)
 end
 
 -- Event handler
@@ -161,11 +191,11 @@ local function OnEvent(self, event, ...)
     elseif event == "ADDON_LOADED" then
         local addonName = ...
         if addonName == ADDON_NAME then
-            -- EnsureFrameExists()
-            verbose(ADDON_NAME .. " loaded. Use /pbfi <size> to set icon size.")
+            EnsureFrameExists()
             ApplyIconSize()
             LoadPosition()
             UpdateIcon()
+            verbose(ADDON_NAME .. " loaded. Use /pbfi <size> to set icon size.")
         end
     end
 end
@@ -179,21 +209,35 @@ SlashCmdList["PBFI"] = function(msg)
         return
     end
 
-    local newSize = tonumber(msg)
-    if not newSize or newSize <= 0 then
-        PrintUsage()
+    local cmd, rest = msg:match("^(%S+)%s*(.-)%s*$")
+    cmd = cmd and cmd:lower() or ""
+
+    if cmd == "size" then
+        local newSize = tonumber(rest)
+        if not newSize or newSize <= 0 then
+            PrintUsage()
+            return
+        end
+
+        PvPBattlegroundFactionIconDB.size = newSize
+        ApplyIconSize()
+        info("Icon size set to " .. tostring(newSize) .. " (previewing for 10s)")
+        ForceShowIconForSeconds(10)
         return
     end
 
-    PvPBattlegroundFactionIconDB.size = newSize
-    ApplyIconSize()
-    verbose("PvP Battleground Faction Icon size set to " .. tostring(newSize))
+    if cmd == "debug" then
+        PvPBattlegroundFactionIconDB.debug = not PvPBattlegroundFactionIconDB.debug
+        info("Debug is now " .. tostring(PvPBattlegroundFactionIconDB.debug))
+        return
+    end
+
+    PrintUsage()
 end
 
 -- Initialize the addon
 local f = CreateFrame("Frame")
 local function Initialize()
-    EnsureFrameExists()
     f:RegisterEvent("PLAYER_ENTERING_WORLD")
     f:RegisterEvent("ZONE_CHANGED_NEW_AREA")
     f:RegisterEvent("PLAYER_LEAVING_WORLD")
