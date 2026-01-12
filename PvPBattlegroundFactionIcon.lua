@@ -1,14 +1,23 @@
+local _, ns = ...
+
 -- Faction icons
 local factionIcons = {
-    [0] = "Interface\\Icons\\UI_HordeIcon", -- Horde
+    [0] = "Interface\\Icons\\pvpcurrency-honor-horde", -- Horde
     [1] = "Interface\\Icons\\Ui_alliance_7legionmedal", -- Alliance
 }
 
 local frame = nil
 local icon = nil
+local border = nil
 local currentFaction = nil -- Currently displayed faction
 
-local ADDON_NAME = "PvPBattlegroundFactionIcon"
+-- Faction colors for border (RGB 0-1)
+local factionColors = {
+    [0] = { r = 0.8, g = 0.1, b = 0.1 }, -- Horde (red)
+    [1] = { r = 0.1, g = 0.4, b = 0.8 }, -- Alliance (blue)
+}
+
+local ADDON_NAME = ns.SparkleUtil.GradientText("PvPBattlegroundFactionIcon", "c80404", "9a09ba", "274bff")
 local FRAME_NAME = "FactionIconFrame"
 local DEFAULT_ICON_SIZE = 48
 
@@ -26,12 +35,12 @@ if type(PvPBattlegroundFactionIconDB.debug) ~= "boolean" then
 end
 
 local function info(msg)
-    print(ADDON_NAME .. ": |cffcfcfcf" .. tostring(msg) .. "|r")
+    print(ADDON_NAME .. ": " .. tostring(msg) .. "|r")
 end
 
 local function verbose(msg)
     if PvPBattlegroundFactionIconDB.debug then
-        print(ADDON_NAME .. " (debug): |cffcfcfcf" .. tostring(msg) .. "|r")
+        print(ADDON_NAME .. " (debug): " .. tostring(msg) .. "|r")
     end
 end
 
@@ -68,9 +77,15 @@ local function ApplyIconSize()
     verbose("Applying icon size")
 
     local size = GetSavedIconSize()
-    frame:SetSize(size, size)
+    local borderSize = 3
+    frame:SetSize(size + borderSize * 2, size + borderSize * 2)
     if icon then
-        icon:SetAllPoints()
+        icon:ClearAllPoints()
+        icon:SetPoint("TOPLEFT", frame, "TOPLEFT", borderSize, -borderSize)
+        icon:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -borderSize, borderSize)
+    end
+    if border then
+        border:SetAllPoints(frame)
     end
 end
 
@@ -110,7 +125,18 @@ local function EnsureFrameExists()
     if not icon then
         verbose("Creating icon texture")
         icon = frame:CreateTexture(nil, "ARTWORK")
-        icon:SetAllPoints()
+        local borderSize = 3
+        icon:SetPoint("TOPLEFT", frame, "TOPLEFT", borderSize, -borderSize)
+        icon:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -borderSize, borderSize)
+        -- Zoom in slightly to hide the icon's built-in border
+        icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+    end
+
+    if not border then
+        verbose("Creating border texture")
+        border = frame:CreateTexture(nil, "BACKGROUND")
+        border:SetAllPoints(frame)
+        border:SetColorTexture(1, 1, 1, 1) -- Default white, will be updated
     end
 end
 
@@ -165,6 +191,12 @@ local function UpdateIcon()
     if faction and factionIcons[faction] then
         if currentFaction ~= faction then
             icon:SetTexture(factionIcons[faction])
+            -- Update border color to match faction
+            if border and factionColors[faction] then
+                local c = factionColors[faction]
+                border:SetColorTexture(c.r, c.g, c.b, 1)
+                verbose("Updated border color for faction: " .. tostring(faction))
+            end
             currentFaction = faction
             verbose("Updated icon to faction: " .. tostring(faction))
         end
