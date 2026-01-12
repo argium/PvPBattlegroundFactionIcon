@@ -174,16 +174,18 @@ end
 
 -- Update the faction icon
 local function UpdateIcon()
-    assert(frame, "Frame not initialized")
-    assert(icon, "Icon not initialized")
-
     -- Check if the player is in a battleground
     if not IsInBattleground() then
-        frame:Hide()
-        currentFaction = nil
-        verbose("Not in battleground, hiding icon")
+        if frame then
+            frame:Hide()
+            currentFaction = nil
+            verbose("Not in battleground, hiding icon")
+        end
         return
     end
+
+    assert(frame, "Frame not initialized")
+    assert(icon, "Icon not initialized")
 
     -- Get the player's faction/team for the active match
     local faction = GetMatchFaction()
