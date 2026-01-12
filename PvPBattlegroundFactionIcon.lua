@@ -17,9 +17,12 @@ local factionColors = {
     [1] = { r = 0.1, g = 0.4, b = 0.8 }, -- Alliance (blue)
 }
 
-local ADDON_NAME = ns.SparkleUtil.GradientText("PvPBattlegroundFactionIcon", "c80404", "9a09ba", "274bff")
+local ADDON_NAME = "PvPBattlegroundFactionIcon"
+local ADDON_NAME_COLOURED = ns.SparkleUtil.GradientText("PvPBattlegroundFactionIcon", "c80404", "9a09ba", "274bff")
 local FRAME_NAME = "FactionIconFrame"
 local DEFAULT_ICON_SIZE = 48
+
+local UpdateIcon -- Forward declaration
 
 -- SavedVariables
 PvPBattlegroundFactionIconDB = PvPBattlegroundFactionIconDB or {}
@@ -35,12 +38,12 @@ if type(PvPBattlegroundFactionIconDB.debug) ~= "boolean" then
 end
 
 local function info(msg)
-    print(ADDON_NAME .. ": " .. tostring(msg) .. "|r")
+    print(ADDON_NAME_COLOURED .. ": " .. tostring(msg) .. "|r")
 end
 
 local function verbose(msg)
     if PvPBattlegroundFactionIconDB.debug then
-        print(ADDON_NAME .. " (debug): " .. tostring(msg) .. "|r")
+        print(ADDON_NAME_COLOURED .. " (debug): " .. tostring(msg) .. "|r")
     end
 end
 
@@ -83,6 +86,10 @@ local function ApplyIconSize()
         icon:ClearAllPoints()
         icon:SetPoint("TOPLEFT", frame, "TOPLEFT", borderSize, -borderSize)
         icon:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -borderSize, borderSize)
+        UpdateIcon(true)
+        C_Timer.After(5, function()
+            UpdateIcon()
+        end)
     end
     if border then
         border:SetAllPoints(frame)
@@ -173,22 +180,25 @@ local function GetMatchFaction()
 end
 
 -- Update the faction icon
-local function UpdateIcon()
-    -- Check if the player is in a battleground
-    if not IsInBattleground() then
-        if frame then
-            frame:Hide()
-            currentFaction = nil
-            verbose("Not in battleground, hiding icon")
-        end
-        return
-    end
-
+UpdateIcon = function(force)
     assert(frame, "Frame not initialized")
     assert(icon, "Icon not initialized")
 
+    -- Check if the player is in a battleground
+    if not force and not IsInBattleground() then
+        frame:Hide()
+        currentFaction = nil
+        verbose("Not in battleground, hiding icon")
+        return
+    end
+
     -- Get the player's faction/team for the active match
     local faction = GetMatchFaction()
+
+    if not faction and force then
+        faction = UnitFactionGroup("player") == "Horde" and 0 or 1
+        verbose("Force update: using player faction " .. tostring(faction))
+    end
 
     if faction and factionIcons[faction] then
         if currentFaction ~= faction then
