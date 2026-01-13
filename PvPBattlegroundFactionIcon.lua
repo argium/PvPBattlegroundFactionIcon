@@ -55,7 +55,7 @@ local function GetSavedIconSize()
     return size
 end
 
-    -- Save the frame's position
+-- Save the frame's position
 local function SavePosition()
     assert(frame, "Frame not initialized")
     local point, _, _, x, y = frame:GetPoint()
