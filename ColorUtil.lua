@@ -1,7 +1,7 @@
 local _, ns = ...
 
-local SparkleUtil = ns.SparkleUtil or {}
-ns.SparkleUtil = SparkleUtil
+local ColorUtil = ns.ColorUtil or {}
+ns.ColorUtil = ColorUtil
 
 --------------------------------------------------------------------------------
 -- Text / RGB helpers
@@ -17,7 +17,7 @@ end
 ---@return number
 local function ToNumberOrError(v)
     local n = tonumber(v)
-    assert(type(n) == "number", "ECM.Util: expected number")
+    assert(type(n) == "number", "ColorUtil: expected number")
     return n
 end
 
@@ -26,7 +26,7 @@ end
 ---@return number g 0..1
 ---@return number b 0..1
 local function NormalizeRGB(color)
-    assert(color ~= nil, "ECM.Util: color is required")
+    assert(color ~= nil, "ColorUtil: color is required")
 
     if type(color) == "string" then
         local hex = color:gsub("^#", "")
@@ -34,12 +34,12 @@ local function NormalizeRGB(color)
             -- Accept AARRGGBB and ignore alpha.
             hex = hex:sub(3, 8)
         end
-        assert(#hex == 6, "ECM.Util: hex color must be RRGGBB or #RRGGBB")
+        assert(#hex == 6, "ColorUtil: hex color must be RRGGBB or #RRGGBB")
 
         local r = tonumber(hex:sub(1, 2), 16)
         local g = tonumber(hex:sub(3, 4), 16)
         local b = tonumber(hex:sub(5, 6), 16)
-        assert(r and g and b, "ECM.Util: invalid hex color")
+        assert(r and g and b, "ColorUtil: invalid hex color")
         return r / 255, g / 255, b / 255
     end
 
@@ -55,7 +55,7 @@ local function NormalizeRGB(color)
         return Clamp(r, 0, 1), Clamp(g, 0, 1), Clamp(b, 0, 1)
     end
 
-    error("ECM.Util: unsupported color type: " .. type(color))
+    error("ColorUtil: unsupported color type: " .. type(color))
 end
 
 ---@param t number 0..1
@@ -110,16 +110,20 @@ local function RGBToHex(r, g, b)
     return string.format("%02x%02x%02x", ri, gi, bi)
 end
 
+--- Returns the byte-length of a string.
+--- Only correct for single-byte encodings (ASCII/Latin-1).
 ---@param s string
 ---@return number
-local function GetCharCount(s)
+local function GetByteLen(s)
     return #s
 end
 
+--- Returns the byte at index `i` (1-based) as a single-character string.
+--- Only correct for single-byte encodings (ASCII/Latin-1).
 ---@param s string
----@param i number 1-based character index
+---@param i number 1-based byte index
 ---@return string
-local function GetCharAt(s, i)
+local function GetByteAt(s, i)
     return s:sub(i, i)
 end
 
@@ -136,10 +140,10 @@ end
 ---@param midColor any|nil Default: blue ("4cc9f0")
 ---@param endColor any|nil Default: green ("22c55e")
 ---@return string
-function SparkleUtil.GradientText(text, startColor, midColor, endColor)
-    assert(type(text) == "string", "ECM.Util.GradientText: text must be a string")
+function ColorUtil.GradientText(text, startColor, midColor, endColor)
+    assert(type(text) == "string", "ColorUtil.GradientText: text must be a string")
 
-    local charCount = GetCharCount(text)
+    local charCount = GetByteLen(text)
     if charCount <= 0 then
         return ""
     end
@@ -163,7 +167,7 @@ function SparkleUtil.GradientText(text, startColor, midColor, endColor)
 
         local t = (effectiveLen == 1) and 0 or ((pos - 1) / (effectiveLen - 1))
         local r, g, b = ThreeStopGradient(t, sr, sg, sb, mr, mg, mb, er, eg, eb)
-        parts[#parts + 1] = "|cff" .. RGBToHex(r, g, b) .. GetCharAt(text, i) .. "|r"
+        parts[#parts + 1] = "|cff" .. RGBToHex(r, g, b) .. GetByteAt(text, i) .. "|r"
     end
 
     return table.concat(parts)

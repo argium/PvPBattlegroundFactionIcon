@@ -1,7 +1,7 @@
 ## Interface: 120000, 120001, 110200
-## Version: v1.0.0
-## Author: Solär (based on work by FitzFuchs)
-## Title: PvP Battleground Faction Icon |cff9c9c9cby|r |cffa855f7S|r|cff7a84f7o|r|cff6b9bf7l|r|cff4cc9f0ä|r|cff22c55er|r
+## Version: v1.0.1
+## Author: Argi (based on work by FitzFuchs)
+## Title: PvP Battleground Faction Icon |cff9c9c9cby|r |cffa855f7A|r|cff7a84f7r|r|cff4cc9f0g|r|cff22c55ei|r
 ## Notes: Displays an icon indicating your faction when in battlegrounds.
 ## IconTexture: Interface\AddOns\PvPBattlegroundFactionIcon\icon
 ## SavedVariables: PvPBattlegroundFactionIconDB
@@ -17,5 +17,5 @@
 ## Category-zhCN: PvP
 ## Category-zhTW: PvP
 
-SparkleUtil.lua
+ColorUtil.lua
 PvPBattlegroundFactionIcon.lua

@@ -18,32 +18,20 @@ local factionColors = {
 }
 
 local ADDON_NAME = "PvPBattlegroundFactionIcon"
-local ADDON_NAME_COLOURED = ns.SparkleUtil.GradientText("PvPBattlegroundFactionIcon", "c80404", "9a09ba", "274bff")
+local ADDON_NAME_COLOURED = ns.ColorUtil.GradientText("PvPBattlegroundFactionIcon", "c80404", "9a09ba", "274bff")
 local FRAME_NAME = "FactionIconFrame"
 local DEFAULT_ICON_SIZE = 48
+local BORDER_SIZE = 3
 
 local UpdateIcon -- Forward declaration
 
--- SavedVariables
-PvPBattlegroundFactionIconDB = PvPBattlegroundFactionIconDB or {}
-if type(PvPBattlegroundFactionIconDB.size) ~= "number" or PvPBattlegroundFactionIconDB.size <= 0 then
-    PvPBattlegroundFactionIconDB.size = DEFAULT_ICON_SIZE
-    PvPBattlegroundFactionIconDB.position = nil
-end
-if PvPBattlegroundFactionIconDB.position ~= nil and type(PvPBattlegroundFactionIconDB.position) ~= "table" then
-    PvPBattlegroundFactionIconDB.position = nil
-end
-if type(PvPBattlegroundFactionIconDB.debug) ~= "boolean" then
-    PvPBattlegroundFactionIconDB.debug = false
-end
-
 local function info(msg)
-    print(ADDON_NAME_COLOURED .. ": " .. tostring(msg) .. "|r")
+    print(ADDON_NAME_COLOURED .. ": " .. tostring(msg))
 end
 
 local function verbose(msg)
     if PvPBattlegroundFactionIconDB.debug then
-        print(ADDON_NAME_COLOURED .. " (debug): " .. tostring(msg) .. "|r")
+        print(ADDON_NAME_COLOURED .. " (debug): " .. tostring(msg))
     end
 end
 
@@ -55,20 +43,22 @@ local function GetSavedIconSize()
     return size
 end
 
--- Save the frame's position
+-- Save the frame's position (including anchor point)
 local function SavePosition()
     assert(frame, "Frame not initialized")
     local point, _, _, x, y = frame:GetPoint()
-    PvPBattlegroundFactionIconDB.position = { x = x, y = y }
+    PvPBattlegroundFactionIconDB.position = { point = point, x = x, y = y }
 end
 
 -- Load the frame's position
 local function LoadPosition()
     assert(frame, "Frame not initialized")
     frame:ClearAllPoints()
-    if PvPBattlegroundFactionIconDB.position and type(PvPBattlegroundFactionIconDB.position.x) == "number" and type(PvPBattlegroundFactionIconDB.position.y) == "number" then
-        frame:SetPoint("CENTER", UIParent, "CENTER", PvPBattlegroundFactionIconDB.position.x, PvPBattlegroundFactionIconDB.position.y)
-        verbose("Loaded position: x=" .. tostring(PvPBattlegroundFactionIconDB.position.x) .. ", y=" .. tostring(PvPBattlegroundFactionIconDB.position.y))
+    local pos = PvPBattlegroundFactionIconDB.position
+    if pos and type(pos.x) == "number" and type(pos.y) == "number" then
+        local point = type(pos.point) == "string" and pos.point or "CENTER"
+        frame:SetPoint(point, UIParent, point, pos.x, pos.y)
+        verbose("Loaded position: point=" .. point .. ", x=" .. tostring(pos.x) .. ", y=" .. tostring(pos.y))
     else
         frame:SetPoint("CENTER", UIParent, "CENTER")
         verbose("No saved position, using default center position")
@@ -80,12 +70,11 @@ local function ApplyIconSize()
     verbose("Applying icon size")
 
     local size = GetSavedIconSize()
-    local borderSize = 3
-    frame:SetSize(size + borderSize * 2, size + borderSize * 2)
+    frame:SetSize(size + BORDER_SIZE * 2, size + BORDER_SIZE * 2)
     if icon then
         icon:ClearAllPoints()
-        icon:SetPoint("TOPLEFT", frame, "TOPLEFT", borderSize, -borderSize)
-        icon:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -borderSize, borderSize)
+        icon:SetPoint("TOPLEFT", frame, "TOPLEFT", BORDER_SIZE, -BORDER_SIZE)
+        icon:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -BORDER_SIZE, BORDER_SIZE)
         UpdateIcon(true)
         C_Timer.After(5, function()
             UpdateIcon()
@@ -132,9 +121,8 @@ local function EnsureFrameExists()
     if not icon then
         verbose("Creating icon texture")
         icon = frame:CreateTexture(nil, "ARTWORK")
-        local borderSize = 3
-        icon:SetPoint("TOPLEFT", frame, "TOPLEFT", borderSize, -borderSize)
-        icon:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -borderSize, borderSize)
+        icon:SetPoint("TOPLEFT", frame, "TOPLEFT", BORDER_SIZE, -BORDER_SIZE)
+        icon:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -BORDER_SIZE, BORDER_SIZE)
         -- Zoom in slightly to hide the icon's built-in border
         icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
     end
@@ -215,21 +203,39 @@ UpdateIcon = function(force)
         frame:Show()
         return
     else
-        verbose("No valid faction detected (".. tostring(faction) .. "), hiding icon")
+        verbose("No valid faction detected (" .. tostring(faction) .. "), hiding icon")
         frame:Hide()
         currentFaction = nil
     end
 end
 
+-- Validate and initialize SavedVariables (called once from ADDON_LOADED)
+local function InitSavedVars()
+    PvPBattlegroundFactionIconDB = PvPBattlegroundFactionIconDB or {}
+    local db = PvPBattlegroundFactionIconDB
+    if type(db.size) ~= "number" or db.size <= 0 then
+        db.size = DEFAULT_ICON_SIZE
+        db.position = nil
+    end
+    if db.position ~= nil and type(db.position) ~= "table" then
+        db.position = nil
+    end
+    if type(db.debug) ~= "boolean" then
+        db.debug = false
+    end
+end
+
 -- Event handler
 local function OnEvent(self, event, ...)
-    if event == "PLAYER_ENTERING_WORLD" or event == "ZONE_CHANGED_NEW_AREA" or event == "PLAYER_LEAVING_WORLD" then
+    if event == "PLAYER_ENTERING_WORLD" or event == "ZONE_CHANGED_NEW_AREA"
+        or event == "PLAYER_LEAVING_WORLD" or event == "UPDATE_BATTLEFIELD_STATUS" then
         C_Timer.After(0.1, function()
             UpdateIcon()
         end)
     elseif event == "ADDON_LOADED" then
         local addonName = ...
         if addonName == ADDON_NAME then
+            InitSavedVars()
             EnsureFrameExists()
             ApplyIconSize()
             LoadPosition()
@@ -284,6 +290,7 @@ local function Initialize()
     f:RegisterEvent("PLAYER_ENTERING_WORLD")
     f:RegisterEvent("ZONE_CHANGED_NEW_AREA")
     f:RegisterEvent("PLAYER_LEAVING_WORLD")
+    f:RegisterEvent("UPDATE_BATTLEFIELD_STATUS")
     f:RegisterEvent("ADDON_LOADED")
     f:SetScript("OnEvent", OnEvent)
 end
