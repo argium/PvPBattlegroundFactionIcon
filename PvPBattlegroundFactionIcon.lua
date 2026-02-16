@@ -18,7 +18,7 @@ local factionColors = {
 }
 
 local ADDON_NAME = "PvPBattlegroundFactionIcon"
-local ADDON_NAME_COLOURED = ns.ColorUtil.GradientText("PvPBattlegroundFactionIcon", "c80404", "9a09ba", "274bff")
+local ADDON_NAME_COLOURED = ns.ColorUtil.GradientText("PvP Battleground Faction Icon", "c80404", "9a09ba", "274bff")
 local FRAME_NAME = "FactionIconFrame"
 local DEFAULT_ICON_SIZE = 48
 local BORDER_SIZE = 3
@@ -147,8 +147,10 @@ end
 
 
 local function PrintUsage()
-    info("Usage: /pbfi size <number> | /pbfi debug | /pbfi reset")
-    info("Current size: " .. tostring(GetSavedIconSize()) .. ", debug: " .. tostring(PvPBattlegroundFactionIconDB.debug))
+    info("Hold Ctrl+Shift and drag the icon to reposition it.")
+    info("/pbfi size <number> - Set icon size (current: " .. tostring(GetSavedIconSize()) .. ")")
+    info("/pbfi reset - Reset icon position to default")
+    info("/pbfi debug - Toggle debug mode (current: " .. tostring(PvPBattlegroundFactionIconDB.debug) .. ")")
 end
 
 -- Check if the player is in a battleground
@@ -227,7 +229,15 @@ end
 
 -- Event handler
 local function OnEvent(self, event, ...)
-    if event == "PLAYER_ENTERING_WORLD" or event == "ZONE_CHANGED_NEW_AREA"
+    if event == "PLAYER_ENTERING_WORLD" then
+        if not PvPBattlegroundFactionIconDB.position then
+            info("Hold Ctrl+Shift and drag the icon to reposition it.")
+            info("Use /pbfi size <number> to change the icon size, or /pbfi reset to restore the default position.")
+        end
+        C_Timer.After(0.1, function()
+            UpdateIcon()
+        end)
+    elseif event == "ZONE_CHANGED_NEW_AREA"
         or event == "PLAYER_LEAVING_WORLD" or event == "UPDATE_BATTLEFIELD_STATUS" then
         C_Timer.After(0.1, function()
             UpdateIcon()
