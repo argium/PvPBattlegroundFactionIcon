@@ -1,5 +1,5 @@
 ## Interface: 120000, 120001, 110200
-## Version: v1.0.1
+## Version: v1.0.2
 ## Author: Argi (based on work by FitzFuchs)
 ## Title: PvP Battleground Faction Icon |cff9c9c9cby|r |cffa855f7A|r|cff7a84f7r|r|cff4cc9f0g|r|cff22c55ei|r
 ## Notes: Displays an icon indicating your faction when in battlegrounds.
