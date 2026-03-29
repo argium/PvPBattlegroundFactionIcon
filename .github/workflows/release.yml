@@ -42,8 +42,8 @@ jobs:
                   eval "$(luarocks --lua-version=5.1 path --local)"
                   mkdir -p test-results
                   rm -f luacov.stats.out luacov.report.out
-                  busted -r coverage Tests --output=junit > test-results/busted-junit.xml
-                  busted -r coverage --run libevent --output=junit > test-results/libevent-junit.xml
+                  busted --coverage --run default --output=junit > test-results/busted-junit.xml
+                  busted --coverage --run libevent --output=junit > test-results/libevent-junit.xml
                   luacov
                   mv luacov.report.out test-results/luacov.report.out
 
