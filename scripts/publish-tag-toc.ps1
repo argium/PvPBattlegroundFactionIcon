@@ -8,6 +8,10 @@ param(
 $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
 
+if ([string]::IsNullOrWhiteSpace($Message)) {
+    throw "A non-empty -Message is required. The release tag annotation is used for the GitHub release and published changelog."
+}
+
 function Invoke-Git {
     param(
         [Parameter(Mandatory = $true)]
@@ -18,6 +22,20 @@ function Invoke-Git {
     if ($LASTEXITCODE -ne 0) {
         throw "git $($Arguments -join ' ') failed with exit code $LASTEXITCODE."
     }
+}
+
+function Get-GitTagTarget {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$TagName
+    )
+
+    $tagTargetOutput = & git rev-parse "refs/tags/$TagName^{}" 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        throw "Failed resolving target for tag '$TagName': $($tagTargetOutput -join "`n")"
+    }
+
+    return ($tagTargetOutput | Select-Object -First 1).ToString().Trim()
 }
 
 function Get-GitHubWorkflowsUrl {
@@ -104,25 +122,23 @@ if ($LASTEXITCODE -ne 0) {
 }
 $remoteTagExists = -not [string]::IsNullOrWhiteSpace(($remoteQuery -join "`n"))
 
+if ($remoteTagExists) {
+    throw "Tag '$version' already exists on '$Remote'. Its release notes are already locked in. Delete the remote tag/release manually or bump the version before publishing again."
+}
+
 if (-not $localTagExists -and -not $remoteTagExists) {
     Write-Host "Creating local tag '$version'"
-    if ([string]::IsNullOrWhiteSpace($Message)) {
-        Invoke-Git -Arguments @("tag", $version)
-    } else {
-        Write-Host "Using tag/release message: $Message"
-        Invoke-Git -Arguments @("tag", "-a", $version, "-m", $Message)
-    }
+    Write-Host "Using tag/release message: $Message"
+    Invoke-Git -Arguments @("tag", "-a", $version, "-m", $Message)
     $localTagExists = $true
 } elseif ($localTagExists) {
     Write-Host "Local tag '$version' already exists." -ForegroundColor Yellow
-} else {
-    Write-Host "Tag '$version' already exists on remote '$Remote'." -ForegroundColor Yellow
-}
 
-if ($remoteTagExists) {
-    Write-Host "Refusing to push because '$version' already exists on '$Remote'." -ForegroundColor Red
-    Open-GitHubWorkflowsPage -RemoteName $Remote
-    exit 0
+    $tagTarget = Get-GitTagTarget -TagName $version
+    Write-Host "Replacing local tag '$version' so it exactly matches the provided release message before pushing."
+    Invoke-Git -Arguments @("tag", "-d", $version)
+    Write-Host "Using tag/release message: $Message"
+    Invoke-Git -Arguments @("tag", "-a", $version, "-m", $Message, $tagTarget)
 }
 
 if (-not $localTagExists) {
