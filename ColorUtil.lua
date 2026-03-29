@@ -1,31 +1,39 @@
-local _, ns = ...
+-- PvP Battleground Faction Icon
+-- Licensed under the GNU General Public License v3.0
 
-local ColorUtil = ns.ColorUtil or {}
+---@class PBFI_Color
+---@field r number Red component (0..1)
+---@field g number Green component (0..1)
+---@field b number Blue component (0..1)
+---@field a number? Optional alpha component (0..1)
+
+local _, ns = ...
+local ColorUtil = {}
 ns.ColorUtil = ColorUtil
 
---------------------------------------------------------------------------------
--- Text / RGB helpers
---------------------------------------------------------------------------------
-
-local function Clamp(v, minV, maxV)
-    if v < minV then return minV end
-    if v > maxV then return maxV end
-    return v
+--- Compares two color tables for equality.
+---@param c1 PBFI_Color|nil
+---@param c2 PBFI_Color|nil
+---@return boolean
+function ColorUtil.AreEqual(c1, c2)
+    if c1 == c2 then
+        return true
+    end
+    if not c1 or not c2 then
+        return false
+    end
+    return c1.r == c2.r and c1.g == c2.g and c1.b == c2.b and c1.a == c2.a
 end
 
----@param v any
----@return number
-local function ToNumberOrError(v)
-    local n = tonumber(v)
-    assert(type(n) == "number", "ColorUtil: expected number")
-    return n
+local function clamp(v, minV, maxV)
+    return math.max(minV, math.min(maxV, v))
 end
 
----@param color any
+---@param color string|table
 ---@return number r 0..1
 ---@return number g 0..1
 ---@return number b 0..1
-local function NormalizeRGB(color)
+local function normalizeRgb(color)
     assert(color ~= nil, "ColorUtil: color is required")
 
     if type(color) == "string" then
@@ -44,18 +52,35 @@ local function NormalizeRGB(color)
     end
 
     if type(color) == "table" then
-        local r = ToNumberOrError(color[1])
-        local g = ToNumberOrError(color[2])
-        local b = ToNumberOrError(color[3])
+        local r = assert(tonumber(color.r or color[1]), "ColorUtil: expected number")
+        local g = assert(tonumber(color.g or color[2]), "ColorUtil: expected number")
+        local b = assert(tonumber(color.b or color[3]), "ColorUtil: expected number")
 
         -- Treat values > 1 as 0..255.
         if r > 1 or g > 1 or b > 1 then
-            return Clamp(r / 255, 0, 1), Clamp(g / 255, 0, 1), Clamp(b / 255, 0, 1)
+            return clamp(r / 255, 0, 1), clamp(g / 255, 0, 1), clamp(b / 255, 0, 1)
         end
-        return Clamp(r, 0, 1), Clamp(g, 0, 1), Clamp(b, 0, 1)
+        return clamp(r, 0, 1), clamp(g, 0, 1), clamp(b, 0, 1)
     end
 
     error("ColorUtil: unsupported color type: " .. type(color))
+end
+
+---@param r number 0..1
+---@param g number 0..1
+---@param b number 0..1
+---@return string hex
+local function rgbToHex(r, g, b)
+    local ri = clamp(math.floor((r * 255) + 0.5), 0, 255)
+    local gi = clamp(math.floor((g * 255) + 0.5), 0, 255)
+    local bi = clamp(math.floor((b * 255) + 0.5), 0, 255)
+    return string.format("%02x%02x%02x", ri, gi, bi)
+end
+
+---@param color PBFI_Color
+---@return string hex
+function ColorUtil.ColorToHex(color)
+    return rgbToHex(color.r, color.g, color.b)
 end
 
 ---@param t number 0..1
@@ -65,10 +90,8 @@ end
 ---@param r2 number
 ---@param g2 number
 ---@param b2 number
----@return number r
----@return number g
----@return number b
-local function LerpRGB(t, r1, g1, b1, r2, g2, b2)
+---@return number r, number g, number b
+local function lerpRgb(t, r1, g1, b1, r2, g2, b2)
     return (r1 + (r2 - r1) * t), (g1 + (g2 - g1) * t), (b1 + (b2 - b1) * t)
 end
 
@@ -82,10 +105,8 @@ end
 ---@param er number
 ---@param eg number
 ---@param eb number
----@return number r
----@return number g
----@return number b
-local function ThreeStopGradient(t, sr, sg, sb, mr, mg, mb, er, eg, eb)
+---@return number r, number g, number b
+local function threeStopGradient(t, sr, sg, sb, mr, mg, mb, er, eg, eb)
     if t <= 0 then
         return sr, sg, sb
     end
@@ -94,37 +115,9 @@ local function ThreeStopGradient(t, sr, sg, sb, mr, mg, mb, er, eg, eb)
     end
 
     if t <= 0.5 then
-        return LerpRGB(t * 2, sr, sg, sb, mr, mg, mb)
+        return lerpRgb(t * 2, sr, sg, sb, mr, mg, mb)
     end
-    return LerpRGB((t - 0.5) * 2, mr, mg, mb, er, eg, eb)
-end
-
----@param r number 0..1
----@param g number 0..1
----@param b number 0..1
----@return string hex RRGGBB
-local function RGBToHex(r, g, b)
-    local ri = Clamp(math.floor((r * 255) + 0.5), 0, 255)
-    local gi = Clamp(math.floor((g * 255) + 0.5), 0, 255)
-    local bi = Clamp(math.floor((b * 255) + 0.5), 0, 255)
-    return string.format("%02x%02x%02x", ri, gi, bi)
-end
-
---- Returns the byte-length of a string.
---- Only correct for single-byte encodings (ASCII/Latin-1).
----@param s string
----@return number
-local function GetByteLen(s)
-    return #s
-end
-
---- Returns the byte at index `i` (1-based) as a single-character string.
---- Only correct for single-byte encodings (ASCII/Latin-1).
----@param s string
----@param i number 1-based byte index
----@return string
-local function GetByteAt(s, i)
-    return s:sub(i, i)
+    return lerpRgb((t - 0.5) * 2, mr, mg, mb, er, eg, eb)
 end
 
 --- Returns `text` with each character wrapped in a 3-stop gradient color.
@@ -134,40 +127,39 @@ end
 ---
 --- Notes:
 --- - Designed for 4..60 characters; longer strings are mapped onto a 60-step gradient.
---- - Colors can be provided as "RRGGBB" / "#RRGGBB" strings or {r,g,b} arrays (0..1 or 0..255).
+--- - Colors can be provided as "RRGGBB" / "#RRGGBB" strings, PBFI_Color tables, or {r,g,b} arrays (0..1 or 0..255).
 ---@param text string
----@param startColor any|nil Default: purple ("a855f7")
----@param midColor any|nil Default: blue ("4cc9f0")
----@param endColor any|nil Default: green ("22c55e")
+---@param startColor string|table|nil
+---@param midColor string|table|nil
+---@param endColor string|table|nil
 ---@return string
-function ColorUtil.GradientText(text, startColor, midColor, endColor)
-    assert(type(text) == "string", "ColorUtil.GradientText: text must be a string")
+function ColorUtil.Sparkle(text, startColor, midColor, endColor)
+    assert(type(text) == "string", "text must be a string")
+    startColor = startColor or { r = 0.25, g = 0.82, b = 1.00, a = 1 }
+    midColor = midColor or { r = 0.62, g = 0.45, b = 1.00, a = 1 }
+    endColor = endColor or { r = 0.13, g = 0.77, b = 0.37, a = 1 }
 
-    local charCount = GetByteLen(text)
-    if charCount <= 0 then
+    local charCount = #text
+    if charCount == 0 then
         return ""
     end
 
-    local sr, sg, sb = NormalizeRGB(startColor or "a855f7")
-    local mr, mg, mb = NormalizeRGB(midColor or "4cc9f0")
-    local er, eg, eb = NormalizeRGB(endColor or "22c55e")
+    local sr, sg, sb = normalizeRgb(startColor)
+    local mr, mg, mb = normalizeRgb(midColor)
+    local er, eg, eb = normalizeRgb(endColor)
 
-    local effectiveLen = Clamp(charCount, 4, 60)
-
+    local effectiveLen = clamp(charCount, 4, 60)
     local parts = {}
+
     for i = 1, charCount do
-        local pos
-        if charCount == 1 then
-            pos = math.ceil(effectiveLen / 2)
-        else
-            -- Map the actual character index into [1..effectiveLen] so strings longer than
-            -- effectiveLen still preserve the same start/mid/end colors.
-            pos = 1 + math.floor(((i - 1) * (effectiveLen - 1) / (charCount - 1)) + 0.5)
-        end
+        -- Map character index i (1..charCount) to gradient position (1..effectiveLen)
+        -- with rounding, so each character samples from the correct gradient stop.
+        local pos = (charCount == 1) and math.ceil(effectiveLen / 2)
+            or (1 + math.floor(((i - 1) * (effectiveLen - 1) / (charCount - 1)) + 0.5))
 
         local t = (effectiveLen == 1) and 0 or ((pos - 1) / (effectiveLen - 1))
-        local r, g, b = ThreeStopGradient(t, sr, sg, sb, mr, mg, mb, er, eg, eb)
-        parts[#parts + 1] = "|cff" .. RGBToHex(r, g, b) .. GetByteAt(text, i) .. "|r"
+        local r, g, b = threeStopGradient(t, sr, sg, sb, mr, mg, mb, er, eg, eb)
+        parts[i] = "|cff" .. rgbToHex(r, g, b) .. text:sub(i, i) .. "|r"
     end
 
     return table.concat(parts)

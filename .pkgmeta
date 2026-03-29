@@ -1,0 +1,10 @@
+ignore:
+  - AGENTS.md
+  - README.md
+  - TODO.md
+  - Tests
+  - '**/Tests'
+  - '*.code-workspace'
+  - '*.rockspec'
+  - scripts
+  - media/icon-full.tga

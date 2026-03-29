@@ -1,0 +1,11 @@
+return {
+    _all = {
+        ROOT = { "Tests" },
+    },
+    default = {
+        ROOT = { "Tests" },
+    },
+    libevent = {
+        ROOT = { "Libs/LibEvent/Tests" },
+    },
+}
