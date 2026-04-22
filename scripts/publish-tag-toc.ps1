@@ -126,12 +126,12 @@ if ($remoteTagExists) {
     throw "Tag '$version' already exists on '$Remote'. Its release notes are already locked in. Delete the remote tag/release manually or bump the version before publishing again."
 }
 
-if (-not $localTagExists -and -not $remoteTagExists) {
+if (-not $localTagExists) {
     Write-Host "Creating local tag '$version'"
     Write-Host "Using tag/release message: $Message"
     Invoke-Git -Arguments @("tag", "-a", $version, "-m", $Message)
     $localTagExists = $true
-} elseif ($localTagExists) {
+} else {
     Write-Host "Local tag '$version' already exists." -ForegroundColor Yellow
 
     $tagTarget = Get-GitTagTarget -TagName $version
