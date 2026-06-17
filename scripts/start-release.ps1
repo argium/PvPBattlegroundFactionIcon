@@ -1,7 +1,6 @@
 param(
     [string]$TocPath = "PvPBattlegroundFactionIcon.toc",
     [string]$Remote = "origin",
-    [Alias("TagMessage", "ReleaseMessage")]
     [string]$Message,
     [string]$MessagePath,
     [switch]$DryRun

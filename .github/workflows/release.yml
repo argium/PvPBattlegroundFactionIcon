@@ -17,12 +17,20 @@ env:
     ADDON_NAME: PvPBattlegroundFactionIcon
 
 jobs:
-    package:
+    validate:
+        name: Validate
+        uses: ./.github/workflows/unit-tests.yml
+        permissions:
+            contents: read
+            checks: write
+
+    publish:
+        name: Publish
+        needs: validate
         runs-on: ubuntu-latest
         environment: release
         permissions:
             contents: write
-            checks: write
 
         steps:
             - name: Checkout repository
@@ -113,57 +121,13 @@ jobs:
                   echo "Release ref: $REF_NAME"
                   echo "Prerelease: $IS_PRERELEASE"
 
-            - name: Install Lua 5.1 and LuaRocks
-              run: |
-                  sudo apt-get update
-                  sudo apt-get install -y lua5.1 liblua5.1-0-dev luarocks
-
-            - name: Install test dependencies
-              run: |
-                  luarocks --lua-version=5.1 install --local busted
-                  luarocks --lua-version=5.1 install --local luacov
-
-            - name: Run Busted tests with LuaCov (JUnit output)
-              run: |
-                  eval "$(luarocks --lua-version=5.1 path --local)"
-                  mkdir -p test-results
-                  rm -f luacov.stats.out luacov.report.out
-                  busted --coverage --run default --output=junit > test-results/busted-junit.xml
-                  busted --coverage --run libevent --output=junit > test-results/libevent-junit.xml
-                  luacov
-                  mv luacov.report.out test-results/luacov.report.out
-
-            - name: Show coverage report
-              run: cat test-results/luacov.report.out
-
-            - name: Upload coverage report
-              uses: actions/upload-artifact@v6
-              with:
-                  name: luacov-report
-                  path: test-results/luacov.report.out
-
-            - name: Publish Test Results
-              uses: EnricoMi/publish-unit-test-result-action@v2.23.0
-              with:
-                  action_fail: true
-                  action_fail_on_inconclusive: true
-                  comment_mode: off
-                  files: |
-                      test-results/busted-junit.xml
-                      test-results/libevent-junit.xml
-
             - name: Prepare release notes
               env:
                   RELEASE_NOTES: ${{ inputs.release_notes }}
               run: |
                   set -euo pipefail
 
-                  if [ -f .pkgmeta ]; then
-                    cp .pkgmeta .github/release.pkgmeta
-                  else
-                    : > .github/release.pkgmeta
-                  fi
-
+                  cp .pkgmeta .github/release.pkgmeta
                   printf '%s\n' "$RELEASE_NOTES" > .github/release-notes.md
                   printf '\n%s\n' 'manual-changelog:' >> .github/release.pkgmeta
                   printf '%s\n' \
@@ -271,6 +235,13 @@ jobs:
               env:
                   CF_API_KEY: ${{ secrets.CF_TOKEN }}
                   WAGO_API_TOKEN: ${{ secrets.WAGO_API_TOKEN }}
+
+            - name: Upload packaged artifacts
+              uses: actions/upload-artifact@v6
+              with:
+                  name: release-packages-${{ steps.release.outputs.version }}
+                  path: ${{ runner.temp }}/release-packages/*.zip
+                  if-no-files-found: error
 
             - name: Create GitHub Release
               env:
